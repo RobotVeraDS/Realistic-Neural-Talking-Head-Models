@@ -10,12 +10,12 @@ from webcam_demo.webcam_extraction_conversion import crop_and_reshape_preds, cro
 
 def select_frames(video_path, K):
     cap = cv2.VideoCapture(video_path)
-    
+
     n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     #unused
     #w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     #h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    
+
     if n_frames <= K: #There are not enough frames in the video
         rand_frames_idx = [1]*n_frames
     else:
@@ -26,29 +26,30 @@ def select_frames(video_path, K):
             if rand_frames_idx[idx] == 0:
                 rand_frames_idx[idx] = 1
                 i += 1
-    
+
     frames_list = []
-    
+
     # Read until video is completed or no frames needed
     ret = True
     frame_idx = 0
     while(ret and frame_idx < n_frames):
         ret, frame = cap.read()
-        
+
         if ret and rand_frames_idx[frame_idx] == 1:
             RGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             frames_list.append(RGB)
-            
+
         frame_idx += 1
 
     cap.release()
-    
+
     return frames_list
 
-def generate_landmarks(frames_list):
+def generate_landmarks(frames_list, device):
     frame_landmark_list = []
-    fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, flip_input=False, device ='cuda:0')
-    
+    fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D,
+                                      flip_input=False, device=str(device))
+
     for i in range(len(frames_list)):
         try:
             input = frames_list[i]
@@ -73,7 +74,7 @@ def generate_landmarks(frames_list):
             ax.plot(preds[42:48,0],preds[42:48,1],marker='',markersize=5,linestyle='-',color='red',lw=2)
             #outer and inner lip
             ax.plot(preds[48:60,0],preds[48:60,1],marker='',markersize=5,linestyle='-',color='purple',lw=2)
-            ax.plot(preds[60:68,0],preds[60:68,1],marker='',markersize=5,linestyle='-',color='pink',lw=2) 
+            ax.plot(preds[60:68,0],preds[60:68,1],marker='',markersize=5,linestyle='-',color='pink',lw=2)
             ax.axis('off')
 
             fig.canvas.draw()
@@ -85,12 +86,12 @@ def generate_landmarks(frames_list):
             plt.close(fig)
         except:
             print('Error: Video corrupted or no landmarks visible')
-    
+
     for i in range(len(frames_list) - len(frame_landmark_list)):
         #filling frame_landmark_list in case of error
         frame_landmark_list.append(frame_landmark_list[i])
-    
-    
+
+
     return frame_landmark_list
 
 
@@ -102,15 +103,16 @@ def select_images_frames(path_to_images):
         images_list.append(img)
     return images_list
 
-def generate_cropped_landmarks(frames_list, pad=50):
+def generate_cropped_landmarks(frames_list, pad=50, device="cpu"):
     frame_landmark_list = []
-    fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, flip_input=False, device ='cuda:0')
-    
+    fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D,
+                                      flip_input=False, device =str(device))
+
     for i in range(len(frames_list)):
         try:
             input = frames_list[i]
             preds = fa.get_landmarks(input)[0]
-            
+
             input = crop_and_reshape_img(input, preds, pad=pad)
             preds = crop_and_reshape_preds(preds, pad=pad)
 
@@ -133,11 +135,11 @@ def generate_cropped_landmarks(frames_list, pad=50):
             ax.plot(preds[42:48,0],preds[42:48,1],marker='',markersize=5,linestyle='-',color='red',lw=2)
             #outer and inner lip
             ax.plot(preds[48:60,0],preds[48:60,1],marker='',markersize=5,linestyle='-',color='purple',lw=2)
-            ax.plot(preds[60:68,0],preds[60:68,1],marker='',markersize=5,linestyle='-',color='pink',lw=2) 
+            ax.plot(preds[60:68,0],preds[60:68,1],marker='',markersize=5,linestyle='-',color='pink',lw=2)
             ax.axis('off')
 
             fig.canvas.draw()
-    
+
             data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
             data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 
@@ -145,10 +147,10 @@ def generate_cropped_landmarks(frames_list, pad=50):
             plt.close(fig)
         except:
             print('Error: Video corrupted or no landmarks visible')
-    
+
     for i in range(len(frames_list) - len(frame_landmark_list)):
         #filling frame_landmark_list in case of error
         frame_landmark_list.append(frame_landmark_list[i])
-    
-    
+
+
     return frame_landmark_list

@@ -18,11 +18,14 @@ import horovod.torch as hvd
 hvd.init()
 
 torch.cuda.set_device(hvd.local_rank())
-
+torch.set_num_threads(1)
 
 
 """Create dataset and net"""
-device = torch.device("cuda")
+
+device = torch.device("cuda:{}".format(hvd.local_rank()))
+print(device)
+
 cpu = torch.device("cpu")
 
 path_to_chkpt = 'model_weights.tar'
@@ -30,7 +33,7 @@ path_to_backup = 'backup_model_weights.tar'
 
 dataset = VidDataSet(K=8, path_to_mp4 = '../../data/voxceleb2/test/mp4', device=device)
 
-dataLoader = DataLoader(dataset, batch_size=1, shuffle=True)
+dataLoader = DataLoader(dataset, batch_size=2, shuffle=True)
 
 G = Generator(224).to(device)
 E = Embedder(224).to(device)
@@ -44,21 +47,14 @@ optimizerG = optim.Adam(params = G.parameters(), lr=5e-5)
 optimizerE = optim.Adam(params = E.parameters(), lr=5e-5)
 optimizerD = optim.Adam(params = D.parameters(), lr=2e-4)
 
-optimizerG = hvd.DistributedOptimizer(optimizerG, named_parameters=G.named_parameters())
-optimizerE = hvd.DistributedOptimizer(optimizerE, named_parameters=E.named_parameters())
-optimizerD = hvd.DistributedOptimizer(optimizerD, named_parameters=D.named_parameters())
-
-
-# Broadcast parameters from rank 0 to all other processes.
-hvd.broadcast_parameters(G.state_dict(), root_rank=0)
-hvd.broadcast_parameters(E.state_dict(), root_rank=0)
-hvd.broadcast_parameters(D.state_dict(), root_rank=0)
 
 """Criterion"""
 criterionG = LossG(VGGFace_body_path='Pytorch_VGGFACE_IR.py',
                    VGGFace_weight_path='Pytorch_VGGFACE.pth', device=device)
+
 criterionDreal = LossDSCreal()
 criterionDfake = LossDSCfake()
+
 
 
 """Training init"""
@@ -92,15 +88,36 @@ E.train()
 D.train()
 
 
+
+# Broadcast parameters from rank 0 to all other processes.
+hvd.broadcast_parameters(G.state_dict(), root_rank=0)
+hvd.broadcast_parameters(E.state_dict(), root_rank=0)
+hvd.broadcast_parameters(D.state_dict(), root_rank=0)
+
+hvd.broadcast_optimizer_state(optimizerG, root_rank=0)
+hvd.broadcast_optimizer_state(optimizerE, root_rank=0)
+hvd.broadcast_optimizer_state(optimizerD, root_rank=0)
+
+optimizerG = hvd.DistributedOptimizer(optimizerG, named_parameters=G.named_parameters())
+optimizerE = hvd.DistributedOptimizer(optimizerE, named_parameters=E.named_parameters())
+optimizerD = hvd.DistributedOptimizer(optimizerD, named_parameters=D.named_parameters())
+
+
+print("Start training")
+
+
 """Training"""
 batch_start = datetime.now()
 
 for epoch in range(epochCurrent, num_epochs):
     for i_batch, (f_lm, x, g_y, i) in enumerate(dataLoader, start=i_batch_current):
+
         if i_batch > len(dataLoader):
             i_batch_current = 0
             break
+
         with torch.autograd.enable_grad():
+
             #zero the parameter gradients
             optimizerG.zero_grad()
             optimizerE.zero_grad()
@@ -126,6 +143,7 @@ for epoch in range(epochCurrent, num_epochs):
 
             loss = lossDreal + lossDfake + lossG
             loss.backward(retain_graph=False)
+
             optimizerG.step()
             optimizerE.step()
             optimizerD.step()
@@ -135,6 +153,7 @@ for epoch in range(epochCurrent, num_epochs):
             optimizerG.zero_grad()
             optimizerE.zero_grad()
             optimizerD.zero_grad()
+
             x_hat.detach_()
             r_hat, D_hat_res_list = D(x_hat, g_y, i)
             r, D_res_list = D(x, g_y, i)
@@ -152,15 +171,13 @@ for epoch in range(epochCurrent, num_epochs):
             batch_end = datetime.now()
             avg_time = (batch_end - batch_start) / 10
 
-            with open("log.txt", "a") as outfile:
-                print('\n\navg batch time for batch size of', x.shape[0],':',avg_time, file=outfile)
+            print('\n\navg batch time for batch size of', x.shape[0],':',avg_time)
 
             batch_start = datetime.now()
 
-            with open("log.txt", "a") as outfile:
-                print('[%d/%d][%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(y)): %.4f'
-                      % (epoch, num_epochs, i_batch, len(dataLoader),
-                         lossD.item(), lossG.item(), r.mean(), r_hat.mean()), file=outfile)
+            print('[%d/%d][%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(y)): %.4f'
+                    % (epoch, num_epochs, i_batch, len(dataLoader),
+                        lossD.item(), lossG.item(), r.mean(), r_hat.mean()))
 
             plt.clf()
             out = x_hat.transpose(1,3)[0]

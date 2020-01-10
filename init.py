@@ -14,7 +14,7 @@ from network.model import *
 
 
 """Create dataset and net"""
-device = torch.device("cuda:0")
+device = torch.device("cpu")
 cpu = torch.device("cpu")
 
 path_to_chkpt = 'model_weights.tar'
