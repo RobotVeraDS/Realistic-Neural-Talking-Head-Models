@@ -88,7 +88,6 @@ E.train()
 D.train()
 
 
-
 # Broadcast parameters from rank 0 to all other processes.
 hvd.broadcast_parameters(G.state_dict(), root_rank=0)
 hvd.broadcast_parameters(E.state_dict(), root_rank=0)
@@ -166,16 +165,15 @@ for epoch in range(epochCurrent, num_epochs):
 
         # Output training stats
         if i_batch % 10 == 0 and hvd.local_rank() == 0:
-            print('\n\navg batch time for batch size of', x.shape[0],':',avg_time)
-
             batch_end = datetime.now()
             avg_time = (batch_end - batch_start) / 10
 
-            batch_start = datetime.now()
-
+            print('\n\navg batch time for batch size of', x.shape[0],':',avg_time)
             print('[%d/%d][%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(y)): %.4f'
                     % (epoch, num_epochs, i_batch, len(dataLoader),
                         lossD.item(), lossG.item(), r.mean(), r_hat.mean()))
+
+            batch_start = datetime.now()
 
             # Output training stats
             if hvd.local_rank() == 0:
