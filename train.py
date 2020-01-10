@@ -5,7 +5,7 @@ from datetime import datetime
 from matplotlib import pyplot as plt
 import os
 
-from dataset.dataset_class import VidDataSet
+from dataset.dataset_class import PreprocessedVidDataSet
 from dataset.video_extraction_conversion import *
 from loss.loss_discriminator import *
 from loss.loss_generator import *
@@ -28,7 +28,8 @@ device = torch.device("cuda:{}".format(hvd.local_rank()))
 cpu = torch.device("cpu")
 
 # Data
-dataset = VidDataSet(K=K, path_to_mp4 = '../../data/voxceleb2/test/mp4', device=device)
+dataset = PreprocessedVidDataSet(path_to_data='../../data/voxceleb2/test-8',
+                                 device=device)
 dataLoader = DataLoader(dataset, batch_size=2, shuffle=True)
 
 G = Generator(224).to(device)

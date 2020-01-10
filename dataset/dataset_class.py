@@ -6,6 +6,11 @@ import numpy as np
 from .video_extraction_conversion import *
 
 
+def create_filename(person_id, video_id, video):
+    filename = "{}_{}_{}.torch".format(person_id, video_id, video)
+    return filename
+
+
 class VidDataSet(Dataset):
     def __init__(self, K, path_to_mp4, device):
         self.K = K
@@ -20,9 +25,7 @@ class VidDataSet(Dataset):
                     vid_num += 1
         return vid_num
 
-    def __getitem__(self, idx):
-        vid_idx = idx
-
+    def get_video_info(self, idx):
         if idx < 0:
             idx = self.__len__() + idx
 
@@ -38,16 +41,41 @@ class VidDataSet(Dataset):
             if idx == 0:
                 break
 
-        path = os.path.join(self.path_to_mp4, person_id, video_id, video)
-        frame_mark = select_frames(path , self.K)
-        frame_mark = generate_landmarks(frame_mark, self.device)
-        frame_mark = torch.from_numpy(np.array(frame_mark)).type(dtype = torch.float) #K,2,224,224,3
-        frame_mark = frame_mark.transpose(2,4).to(self.device) #K,2,3,224,224
+        return person_id, video_id, video
 
-        g_idx = torch.randint(low = 0, high = self.K, size = (1,1))
-        x = frame_mark[g_idx,0].squeeze()
-        g_y = frame_mark[g_idx,1].squeeze()
+    def __getitem__(self, idx):
+        vid_idx = idx
+        person_id, video_id, video = self.get_video_info(idx)
+
+        path = os.path.join(self.path_to_mp4, person_id, video_id, video)
+
+        frame_mark = select_frames(path, self.K)
+        frame_mark = generate_landmarks(frame_mark, self.device)
+        frame_mark = torch.from_numpy(np.array(frame_mark)).type(dtype = torch.float) #  K,2,224,224,3
+        frame_mark = frame_mark.transpose(2,4).to(self.device) #  K,2,3,224,224
+
+        g_idx = torch.randint(low = 0, high = self.K, size = (1, 1))
+        x = frame_mark[g_idx, 0].squeeze()
+        g_y = frame_mark[g_idx, 1].squeeze()
+
         return frame_mark, x, g_y, vid_idx
+
+
+class PreprocessedVidDataSet(Dataset):
+
+    def __init__(self, path_to_data, device):
+        self.path_to_data = path_to_data
+        self.device = device
+        self.filenames = os.listdir(self.path_to_data)
+
+    def __len__(self):
+        return len(self.filenames)
+
+    def __getitem__(self, idx):
+        data_path = os.path.join(self.path_to_data,
+                                 self.filenames[idx])
+        frame_mark, x, g_y = torch.load(data_path)
+        return frame_mark.to(self.device), x.to(self.device), g_y.to(self.device), idx
 
 
 class FineTuningImagesDataset(Dataset):
