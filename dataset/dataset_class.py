@@ -16,31 +16,24 @@ class VidDataSet(Dataset):
         self.path_to_mp4 = path_to_mp4
         self.device = device
 
-    def __len__(self):
-        vid_num = 0
+        self.idx_to_info = []
+
+        # init
+        idx = 0
         for person_id in os.listdir(self.path_to_mp4):
             for video_id in os.listdir(os.path.join(self.path_to_mp4, person_id)):
                 for video in os.listdir(os.path.join(self.path_to_mp4, person_id, video_id)):
-                    vid_num += 1
-        return vid_num
+                    self.idx_to_info.append((person_id, video_id, video))
+                    idx += 1
+
+    def __len__(self):
+        return len(self.idx_to_info)
 
     def get_video_info(self, idx):
         if idx < 0:
             idx = self.__len__() + idx
 
-        for person_id in os.listdir(self.path_to_mp4):
-            for video_id in os.listdir(os.path.join(self.path_to_mp4, person_id)):
-                for video in os.listdir(os.path.join(self.path_to_mp4, person_id, video_id)):
-                    if idx != 0:
-                        idx -= 1
-                    else:
-                        break
-                if idx == 0:
-                    break
-            if idx == 0:
-                break
-
-        return person_id, video_id, video
+        return self.idx_to_info[idx]
 
     def get_frame_mark_numpy_array(self, idx):
         person_id, video_id, video = self.get_video_info(idx)
