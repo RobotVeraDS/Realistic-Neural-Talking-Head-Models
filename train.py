@@ -148,7 +148,6 @@ for epoch in range(epochCurrent, num_epochs):
             optimizerE.step()
             optimizerD.step()
 
-
             #train D again
             optimizerG.zero_grad()
             optimizerE.zero_grad()
@@ -165,13 +164,12 @@ for epoch in range(epochCurrent, num_epochs):
             lossD.backward(retain_graph=False)
             optimizerD.step()
 
-
         # Output training stats
         if i_batch % 10 == 0 and hvd.local_rank() == 0:
+            print('\n\navg batch time for batch size of', x.shape[0],':',avg_time)
+
             batch_end = datetime.now()
             avg_time = (batch_end - batch_start) / 10
-
-            print('\n\navg batch time for batch size of', x.shape[0],':',avg_time)
 
             batch_start = datetime.now()
 
@@ -179,29 +177,32 @@ for epoch in range(epochCurrent, num_epochs):
                     % (epoch, num_epochs, i_batch, len(dataLoader),
                         lossD.item(), lossG.item(), r.mean(), r_hat.mean()))
 
-            plt.clf()
-            out = x_hat.transpose(1,3)[0]
-            for img_no in range(1,x_hat.shape[0]):
-                out = torch.cat((out, x_hat.transpose(1,3)[img_no]), dim = 1)
-            out = out.type(torch.int32).to(cpu).numpy()
-            plt.imshow(out)
-            plt.show()
+            # Output training stats
+            if hvd.local_rank() == 0:
 
-            plt.clf()
-            out = x.transpose(1,3)[0]
-            for img_no in range(1,x.shape[0]):
-                out = torch.cat((out, x.transpose(1,3)[img_no]), dim = 1)
-            out = out.type(torch.int32).to(cpu).numpy()
-            plt.imshow(out)
-            plt.show()
+                plt.clf()
+                out = x_hat.transpose(1,3)[0]
+                for img_no in range(1,x_hat.shape[0]):
+                    out = torch.cat((out, x_hat.transpose(1,3)[img_no]), dim = 1)
+                out = out.type(torch.int32).to(cpu).numpy()
+                plt.imshow(out)
+                plt.show()
 
-            plt.clf()
-            out = g_y.transpose(1,3)[0]
-            for img_no in range(1,g_y.shape[0]):
-                out = torch.cat((out, g_y.transpose(1,3)[img_no]), dim = 1)
-            out = out.type(torch.int32).to(cpu).numpy()
-            plt.imshow(out)
-            plt.show()
+                plt.clf()
+                out = x.transpose(1,3)[0]
+                for img_no in range(1,x.shape[0]):
+                    out = torch.cat((out, x.transpose(1,3)[img_no]), dim = 1)
+                out = out.type(torch.int32).to(cpu).numpy()
+                plt.imshow(out)
+                plt.show()
+
+                plt.clf()
+                out = g_y.transpose(1,3)[0]
+                for img_no in range(1,g_y.shape[0]):
+                    out = torch.cat((out, g_y.transpose(1,3)[img_no]), dim = 1)
+                out = out.type(torch.int32).to(cpu).numpy()
+                plt.imshow(out)
+                plt.show()
 
         if i_batch % 100 == 99 and hvd.local_rank() == 0:
             lossesD.append(lossD.item())
