@@ -22,8 +22,10 @@ class VidDataSet(Dataset):
 
     def __getitem__(self, idx):
         vid_idx = idx
-        if idx<0:
+
+        if idx < 0:
             idx = self.__len__() + idx
+
         for person_id in os.listdir(self.path_to_mp4):
             for video_id in os.listdir(os.path.join(self.path_to_mp4, person_id)):
                 for video in os.listdir(os.path.join(self.path_to_mp4, person_id, video_id)):
@@ -35,6 +37,7 @@ class VidDataSet(Dataset):
                     break
             if idx == 0:
                 break
+
         path = os.path.join(self.path_to_mp4, person_id, video_id, video)
         frame_mark = select_frames(path , self.K)
         frame_mark = generate_landmarks(frame_mark, self.device)
@@ -82,9 +85,9 @@ class FineTuningVideoDataset(Dataset):
         frame_has_face = False
         while not frame_has_face:
             try:
-	            frame_mark = select_frames(path , 1)
-	            frame_mark = generate_cropped_landmarks(frame_mark, pad=50, device=self.device)
-	            frame_has_face = True
+                frame_mark = select_frames(path , 1)
+                frame_mark = generate_cropped_landmarks(frame_mark, pad=50, device=self.device)
+                frame_has_face = True
             except:
                 print('No face detected, retrying')
         frame_mark = torch.from_numpy(np.array(frame_mark)).type(dtype = torch.float) #1,2,256,256,3

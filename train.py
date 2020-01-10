@@ -1,4 +1,3 @@
-"""Main"""
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
@@ -15,24 +14,21 @@ from network.model import *
 
 import horovod.torch as hvd
 
+
+# Init horovod
 hvd.init()
-
 torch.cuda.set_device(hvd.local_rank())
-torch.set_num_threads(1)
 
-
-"""Create dataset and net"""
+# Constants
+K = 8  # K-shot
+path_to_chkpt = './model_weights.tar'
+path_to_backup = './backup_model_weights.tar'
 
 device = torch.device("cuda:{}".format(hvd.local_rank()))
-print(device)
-
 cpu = torch.device("cpu")
 
-path_to_chkpt = 'model_weights.tar'
-path_to_backup = 'backup_model_weights.tar'
-
-dataset = VidDataSet(K=8, path_to_mp4 = '../../data/voxceleb2/test/mp4', device=device)
-
+# Data
+dataset = VidDataSet(K=K, path_to_mp4 = '../../data/voxceleb2/test/mp4', device=device)
 dataLoader = DataLoader(dataset, batch_size=2, shuffle=True)
 
 G = Generator(224).to(device)
@@ -47,17 +43,15 @@ optimizerG = optim.Adam(params = G.parameters(), lr=5e-5)
 optimizerE = optim.Adam(params = E.parameters(), lr=5e-5)
 optimizerD = optim.Adam(params = D.parameters(), lr=2e-4)
 
-
-"""Criterion"""
-criterionG = LossG(VGGFace_body_path='Pytorch_VGGFACE_IR.py',
-                   VGGFace_weight_path='Pytorch_VGGFACE.pth', device=device)
+# Criterion
+criterionG = LossG(VGGFace_body_path='./Pytorch_VGGFACE_IR.py',
+                   VGGFace_weight_path='./Pytorch_VGGFACE.pth',
+                   device=device)
 
 criterionDreal = LossDSCreal()
 criterionDfake = LossDSCfake()
 
-
-
-"""Training init"""
+# Training init
 epochCurrent = epoch = i_batch = 0
 lossesG = []
 lossesD = []
@@ -65,9 +59,26 @@ i_batch_current = 0
 
 num_epochs = 750
 
-#initiate checkpoint if inexistant in init.py
+# initiate checkpoint if doesn't exist
+if not os.path.isfile(path_to_chkpt):
+  print('Initiating new checkpoint...')
+  torch.save({
+          'epoch': epoch,
+          'lossesG': lossesG,
+          'lossesD': lossesD,
+          'E_state_dict': E.state_dict(),
+          'G_state_dict': G.state_dict(),
+          'D_state_dict': D.state_dict(),
+          'optimizerG_state_dict': optimizerG.state_dict(),
+          'optimizerE_state_dict': optimizerE.state_dict(),
+          'optimizerD_state_dict': optimizerD.state_dict(),
+          'num_vid': dataset.__len__(),
+          'i_batch': i_batch
+          }, path_to_chkpt)
+  print('...Done')
 
-"""Loading from past checkpoint"""
+
+# Load from checkpoint
 checkpoint = torch.load(path_to_chkpt, map_location=cpu)
 E.load_state_dict(checkpoint['E_state_dict'])
 G.load_state_dict(checkpoint['G_state_dict'])
@@ -87,8 +98,7 @@ G.train()
 E.train()
 D.train()
 
-
-# Broadcast parameters from rank 0 to all other processes.
+# Horovod broadcast parameters from rank 0 to all other processes.
 hvd.broadcast_parameters(G.state_dict(), root_rank=0)
 hvd.broadcast_parameters(E.state_dict(), root_rank=0)
 hvd.broadcast_parameters(D.state_dict(), root_rank=0)
@@ -101,13 +111,8 @@ optimizerG = hvd.DistributedOptimizer(optimizerG, named_parameters=G.named_param
 optimizerE = hvd.DistributedOptimizer(optimizerE, named_parameters=E.named_parameters())
 optimizerD = hvd.DistributedOptimizer(optimizerD, named_parameters=D.named_parameters())
 
-
-print("Start training")
-
-
-"""Training"""
+# Training
 batch_start = datetime.now()
-
 for epoch in range(epochCurrent, num_epochs):
     for i_batch, (f_lm, x, g_y, i) in enumerate(dataLoader, start=i_batch_current):
 
@@ -117,21 +122,21 @@ for epoch in range(epochCurrent, num_epochs):
 
         with torch.autograd.enable_grad():
 
-            #zero the parameter gradients
+            # zero the parameter gradients
             optimizerG.zero_grad()
             optimizerE.zero_grad()
             optimizerD.zero_grad()
 
-            #forward
+            # forward
             # Calculate average encoding vector for video
-            f_lm_compact = f_lm.view(-1, f_lm.shape[-4], f_lm.shape[-3], f_lm.shape[-2], f_lm.shape[-1]) #BxK,2,3,224,224
+            f_lm_compact = f_lm.view(-1, f_lm.shape[-4], f_lm.shape[-3],
+                                     f_lm.shape[-2], f_lm.shape[-1])  # BxK,2,3,224,224
 
-            e_vectors = E(f_lm_compact[:,0,:,:,:], f_lm_compact[:,1,:,:,:]) #BxK,512,1
-            e_vectors = e_vectors.view(-1, f_lm.shape[1], 512, 1) #B,K,512,1
+            e_vectors = E(f_lm_compact[:,0,:,:,:], f_lm_compact[:,1,:,:,:])  # BxK,512,1
+            e_vectors = e_vectors.view(-1, f_lm.shape[1], 512, 1)  # B,K,512,1
             e_hat = e_vectors.mean(dim=1)
 
-
-            #train G and D
+            # train G and D
             x_hat = G(g_y, e_hat)
             r_hat, D_hat_res_list = D(x_hat, g_y, i)
             r, D_res_list = D(x, g_y, i)
@@ -147,7 +152,7 @@ for epoch in range(epochCurrent, num_epochs):
             optimizerE.step()
             optimizerD.step()
 
-            #train D again
+            # train D again
             optimizerG.zero_grad()
             optimizerE.zero_grad()
             optimizerD.zero_grad()
@@ -164,7 +169,7 @@ for epoch in range(epochCurrent, num_epochs):
             optimizerD.step()
 
         # Output training stats
-        if i_batch % 10 == 0 and hvd.local_rank() == 0:
+        if i_batch % 10 == 0:
             batch_end = datetime.now()
             avg_time = (batch_end - batch_start) / 10
 
@@ -207,8 +212,8 @@ for epoch in range(epochCurrent, num_epochs):
             lossesG.append(lossG.item())
 
             plt.clf()
-            plt.plot(lossesG) #blue
-            plt.plot(lossesD) #orange
+            plt.plot(lossesG)  # blue
+            plt.plot(lossesD)  # orange
             plt.show()
 
             print('Saving latest...')
