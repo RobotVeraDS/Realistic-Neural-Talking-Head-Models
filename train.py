@@ -28,7 +28,8 @@ device = torch.device("cuda:{}".format(hvd.local_rank()))
 cpu = torch.device("cpu")
 
 # Data
-dataset = PreprocessedVidDataSet(path_to_data='../../data/voxceleb2/test-8',
+dataset = PreprocessedVidDataSet(K=K,
+                                 path_to_data='../../data/voxceleb2/test-8',
                                  device=device)
 dataLoader = DataLoader(dataset, batch_size=2, shuffle=True)
 

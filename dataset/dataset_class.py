@@ -5,7 +5,6 @@ import numpy as np
 
 from .video_extraction_conversion import *
 
-
 def create_filename(person_id, video_id, video):
     filename = "{}_{}_{}.torch".format(person_id, video_id, video)
     return filename
@@ -43,6 +42,16 @@ class VidDataSet(Dataset):
 
         return person_id, video_id, video
 
+    def get_frame_mark_numpy_array(self, idx):
+        person_id, video_id, video = self.get_video_info(idx)
+
+        path = os.path.join(self.path_to_mp4, person_id, video_id, video)
+
+        frame_mark = select_frames(path, self.K)
+        frame_mark = generate_landmarks(frame_mark, self.device)
+
+        return frame_mark
+
     def __getitem__(self, idx):
         vid_idx = idx
         person_id, video_id, video = self.get_video_info(idx)
@@ -52,7 +61,7 @@ class VidDataSet(Dataset):
         frame_mark = select_frames(path, self.K)
         frame_mark = generate_landmarks(frame_mark, self.device)
         frame_mark = torch.from_numpy(np.array(frame_mark)).type(dtype = torch.float) #  K,2,224,224,3
-        frame_mark = frame_mark.transpose(2,4).to(self.device) #  K,2,3,224,224
+        frame_mark = frame_mark.transpose(2, 4).to(self.device) #  K,2,3,224,224
 
         g_idx = torch.randint(low = 0, high = self.K, size = (1, 1))
         x = frame_mark[g_idx, 0].squeeze()
@@ -63,7 +72,8 @@ class VidDataSet(Dataset):
 
 class PreprocessedVidDataSet(Dataset):
 
-    def __init__(self, path_to_data, device):
+    def __init__(self, K, path_to_data, device):
+        self.K = K
         self.path_to_data = path_to_data
         self.device = device
         self.filenames = os.listdir(self.path_to_data)
@@ -74,8 +84,16 @@ class PreprocessedVidDataSet(Dataset):
     def __getitem__(self, idx):
         data_path = os.path.join(self.path_to_data,
                                  self.filenames[idx])
-        frame_mark, x, g_y = torch.load(data_path)
-        return frame_mark.to(self.device), x.to(self.device), g_y.to(self.device), idx
+        frame_mark = torch.load(data_path)
+
+        frame_mark = torch.from_numpy(np.array(frame_mark)).type(dtype = torch.float) #  K,2,224,224,3
+        frame_mark = frame_mark.transpose(2, 4).to(self.device) #  K,2,3,224,224
+
+        g_idx = torch.randint(low = 0, high = self.K, size = (1, 1))
+        x = frame_mark[g_idx, 0].squeeze()
+        g_y = frame_mark[g_idx, 1].squeeze()
+
+        return frame_mark, x, g_y, idx
 
 
 class FineTuningImagesDataset(Dataset):
@@ -94,7 +112,7 @@ class FineTuningImagesDataset(Dataset):
         frame_mark_images = torch.from_numpy(np.array(frame_mark_images)).type(dtype = torch.float) #1,2,256,256,3
         frame_mark_images = frame_mark_images.transpose(2,4).to(self.device) #1,2,3,256,256
 
-        x = frame_mark_images[0,0].squeeze()
+        x = frame_mark_images[0, 0].squeeze()
         g_y = frame_mark_images[0,1].squeeze()
 
         return x, g_y
