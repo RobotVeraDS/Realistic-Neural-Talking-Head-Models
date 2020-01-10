@@ -9,12 +9,12 @@ from network.model import Cropped_VGG19
 class LossCnt(nn.Module):
     def __init__(self, VGGFace_body_path, VGGFace_weight_path, device):
         super(LossCnt, self).__init__()
-        
+
         self.VGG19 = vgg19(pretrained=True)
         self.VGG19.eval()
         self.VGG19.to(device)
-        
-        
+
+
         MainModel = imp.load_source('MainModel', VGGFace_body_path)
         full_VGGFace = torch.load(VGGFace_weight_path, map_location = 'cpu')
         cropped_VGGFace = Cropped_VGG19()
@@ -44,16 +44,16 @@ class LossCnt(nn.Module):
             vgg_x_features.append(output)
         def vgg_xhat_hook(module, input, output):
             vgg_xhat_features.append(output)
-            
+
         vgg_x_features = []
         vgg_xhat_features = []
 
         vgg_x_handles = []
-        
+
         conv_idx_list = [2,7,12,21,30] #idxes of conv layers in VGG19 cf.paper
         conv_idx_iter = 0
-        
-        
+
+
         #place hooks
         for i,m in enumerate(self.VGG19.features.modules()):
             if i == conv_idx_list[conv_idx_iter]:
@@ -82,7 +82,7 @@ class LossCnt(nn.Module):
                         x_hat.detach_() #reset gradient from output of conv layer
                     else:
                         x_hat = m(x_hat)
-        
+
         loss19 = 0
         for x_feat, xhat_feat in zip(vgg_x_features, vgg_xhat_features):
             loss19 += l1_loss(x_feat, xhat_feat)
@@ -97,12 +97,12 @@ class LossAdv(nn.Module):
         super(LossAdv, self).__init__()
         self.l1_loss = nn.L1Loss()
         self.FM_weight = FM_weight
-        
+
     def forward(self, r_hat, D_res_list, D_hat_res_list):
         lossFM = 0
         for res, res_hat in zip(D_res_list, D_hat_res_list):
             lossFM += self.l1_loss(res, res_hat)
-            
+
         return -r_hat.squeeze().mean() + lossFM * self.FM_weight
 
 
@@ -112,7 +112,7 @@ class LossMatch(nn.Module):
         self.l1_loss = nn.L1Loss()
         self.match_weight = match_weight
         self.device = device
-        
+
     def forward(self, e_vectors, W, i):
         loss = torch.zeros(e_vectors.shape[0],1).to(self.device)
         for b in range(e_vectors.shape[0]):
@@ -121,7 +121,7 @@ class LossMatch(nn.Module):
             loss[b] = loss[b]/e_vectors.shape[1]
         loss = loss.mean()
         return loss * self.match_weight
-    
+
 class LossG(nn.Module):
     """
     Loss for generator meta training
@@ -130,11 +130,11 @@ class LossG(nn.Module):
     """
     def __init__(self, VGGFace_body_path, VGGFace_weight_path, device, vgg19_weight=1e-2, vggface_weight=2e-3):
         super(LossG, self).__init__()
-        
+
         self.LossCnt = LossCnt(VGGFace_body_path, VGGFace_weight_path, device)
         self.lossAdv = LossAdv()
         self.lossMatch = LossMatch(device=device)
-        
+
     def forward(self, x, x_hat, r_hat, D_res_list, D_hat_res_list, e_vectors, W, i):
         loss_cnt = self.LossCnt(x, x_hat)
         loss_adv = self.lossAdv(r_hat, D_res_list, D_hat_res_list)
@@ -149,10 +149,10 @@ class LossGF(nn.Module):
     """
     def __init__(self, VGGFace_body_path, VGGFace_weight_path, device, vgg19_weight=1e-2, vggface_weight=2e-3):
         super(LossGF, self).__init__()
-        
+
         self.LossCnt = LossCnt(VGGFace_body_path, VGGFace_weight_path, device)
         self.lossAdv = LossAdv()
-        
+
     def forward(self, x, x_hat, r_hat, D_res_list, D_hat_res_list):
         loss_cnt = self.LossCnt(x, x_hat)
         loss_adv = self.lossAdv(r_hat, D_res_list, D_hat_res_list)

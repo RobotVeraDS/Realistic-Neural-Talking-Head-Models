@@ -104,8 +104,8 @@ for epoch in range(num_epochs):
             loss.backward(retain_graph=False)
             optimizerG.step()
             optimizerD.step()
-            
-            
+
+
             #train D again
             optimizerG.zero_grad()
             optimizerD.zero_grad()
@@ -126,9 +126,9 @@ for epoch in range(num_epochs):
             batch_end = datetime.now()
             avg_time = (batch_end - batch_start) / 10
             print('\n\navg batch time for batch size of', x.shape[0],':',avg_time)
-            
+
             batch_start = datetime.now()
-            
+
             print('[%d/%d][%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(y)): %.4f'
                   % (epoch, num_epochs, i_batch, len(dataLoader),
                      lossD.item(), lossG.item(), r.mean(), r_hat.mean()))

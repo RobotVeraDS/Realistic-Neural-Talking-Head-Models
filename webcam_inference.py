@@ -17,7 +17,7 @@ path_to_embedding = 'e_hat_video.tar'
 device = torch.device("cuda:0")
 cpu = torch.device("cpu")
 
-checkpoint = torch.load(path_to_model_weights, map_location=cpu) 
+checkpoint = torch.load(path_to_model_weights, map_location=cpu)
 e_hat = torch.load(path_to_embedding, map_location=cpu)
 e_hat = e_hat['e_hat'].to(device)
 
@@ -56,7 +56,7 @@ with torch.no_grad():
         out1 = out1.to(cpu).numpy()
         #plt.imshow(out1)
         #plt.show()
-        
+
         #plt.clf()
         out2 = x.transpose(1,3)[0]/255
         #for img_no in range(1,x.shape[0]):
@@ -72,11 +72,11 @@ with torch.no_grad():
         out3 = out3.to(cpu).numpy()
         #plt.imshow(out3)
         #plt.show()
-        
+
         cv2.imshow('fake', cv2.cvtColor(out1, cv2.COLOR_BGR2RGB))
         cv2.imshow('me', cv2.cvtColor(out2, cv2.COLOR_BGR2RGB))
         cv2.imshow('ladnmark', cv2.cvtColor(out3, cv2.COLOR_BGR2RGB))
-        
+
         if cv2.waitKey(1) == ord('q'):
             break
 cap.release()
