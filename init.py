@@ -20,7 +20,7 @@ cpu = torch.device("cpu")
 path_to_chkpt = 'model_weights.tar'
 path_to_backup = 'backup_model_weights.tar'
 
-dataset = VidDataSet(K=8, path_to_mp4 = '/home/vera/data/voxceleb2/tmp/mp4', device=device)
+dataset = VidDataSet(K=8, path_to_mp4 = '../../data/voxceleb2/test/mp4', device=device)
 
 dataLoader = DataLoader(dataset, batch_size=1, shuffle=True)
 

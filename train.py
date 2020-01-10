@@ -28,7 +28,7 @@ cpu = torch.device("cpu")
 path_to_chkpt = 'model_weights.tar'
 path_to_backup = 'backup_model_weights.tar'
 
-dataset = VidDataSet(K=8, path_to_mp4 = '/home/vera/data/voxceleb2/tmp/mp4', device=device)
+dataset = VidDataSet(K=8, path_to_mp4 = '../../data/voxceleb2/test/mp4', device=device)
 
 dataLoader = DataLoader(dataset, batch_size=1, shuffle=True)
 
@@ -147,18 +147,20 @@ for epoch in range(epochCurrent, num_epochs):
             optimizerD.step()
 
 
-        """
         # Output training stats
         if i_batch % 10 == 0 and hvd.local_rank() == 0:
             batch_end = datetime.now()
             avg_time = (batch_end - batch_start) / 10
-            print('\n\navg batch time for batch size of', x.shape[0],':',avg_time)
+
+            with open("log.txt", "a") as outfile:
+                print('\n\navg batch time for batch size of', x.shape[0],':',avg_time, file=outfile)
 
             batch_start = datetime.now()
 
-            print('[%d/%d][%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(y)): %.4f'
-                  % (epoch, num_epochs, i_batch, len(dataLoader),
-                     lossD.item(), lossG.item(), r.mean(), r_hat.mean()))
+            with open("log.txt", "a") as outfile:
+                print('[%d/%d][%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(y)): %.4f'
+                      % (epoch, num_epochs, i_batch, len(dataLoader),
+                         lossD.item(), lossG.item(), r.mean(), r_hat.mean()), file=outfile)
 
             plt.clf()
             out = x_hat.transpose(1,3)[0]
@@ -183,7 +185,6 @@ for epoch in range(epochCurrent, num_epochs):
             out = out.type(torch.int32).to(cpu).numpy()
             plt.imshow(out)
             plt.show()
-        """
 
         if i_batch % 100 == 99 and hvd.local_rank() == 0:
             lossesD.append(lossD.item())
