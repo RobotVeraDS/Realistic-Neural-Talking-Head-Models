@@ -2,6 +2,7 @@ import torch
 from torch.utils.data import Dataset
 import os
 import numpy as np
+import random
 
 from .video_extraction_conversion import *
 
@@ -75,12 +76,20 @@ class PreprocessedVidDataSet(Dataset):
         return len(self.filenames)
 
     def __getitem__(self, idx):
-        data_path = os.path.join(self.path_to_data,
-                                 self.filenames[idx])
-        frame_mark = torch.load(data_path)
+        is_ok = False
+        while not is_ok:
+            try:
+                data_path = os.path.join(self.path_to_data,
+                                         self.filenames[idx])
+                frame_mark = torch.load(data_path)
 
-        frame_mark = torch.from_numpy(np.array(frame_mark)).type(dtype = torch.float) #  K,2,224,224,3
-        frame_mark = frame_mark.transpose(2, 4).to(self.device) #  K,2,3,224,224
+                frame_mark = torch.from_numpy(np.array(frame_mark)).type(dtype = torch.float) #  K,2,224,224,3
+                frame_mark = frame_mark.transpose(2, 4).to(self.device) #  K,2,3,224,224
+                is_ok = True
+            except:
+                print("Warning. {} failed".format(idx))
+                idx = random.randint(0, len(self.filenames) - 1)
+                print("New idx: {}".format(idx))
 
         g_idx = torch.randint(low = 0, high = self.K, size = (1, 1))
         x = frame_mark[g_idx, 0].squeeze()

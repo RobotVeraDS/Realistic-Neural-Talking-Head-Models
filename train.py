@@ -2,7 +2,7 @@ import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from datetime import datetime
-from matplotlib import pyplot as plt
+#from matplotlib import pyplot as plt
 import os
 
 from dataset.dataset_class import PreprocessedVidDataSet
@@ -29,7 +29,7 @@ cpu = torch.device("cpu")
 
 # Data
 dataset = PreprocessedVidDataSet(K=K,
-                                 path_to_data='../../data/voxceleb2/test-8',
+                                 path_to_data='../../data/voxceleb2/data-8',
                                  device=device)
 dataLoader = DataLoader(dataset, batch_size=2, shuffle=True)
 
@@ -60,25 +60,6 @@ lossesD = []
 i_batch_current = 0
 
 num_epochs = 750
-
-# initiate checkpoint if doesn't exist
-if not os.path.isfile(path_to_chkpt):
-  print('Initiating new checkpoint...')
-  torch.save({
-          'epoch': epoch,
-          'lossesG': lossesG,
-          'lossesD': lossesD,
-          'E_state_dict': E.state_dict(),
-          'G_state_dict': G.state_dict(),
-          'D_state_dict': D.state_dict(),
-          'optimizerG_state_dict': optimizerG.state_dict(),
-          'optimizerE_state_dict': optimizerE.state_dict(),
-          'optimizerD_state_dict': optimizerD.state_dict(),
-          'num_vid': dataset.__len__(),
-          'i_batch': i_batch
-          }, path_to_chkpt)
-  print('...Done')
-
 
 # Load from checkpoint
 checkpoint = torch.load(path_to_chkpt, map_location=cpu)
@@ -182,6 +163,7 @@ for epoch in range(epochCurrent, num_epochs):
 
             batch_start = datetime.now()
 
+            """
             # Output training stats
             if hvd.local_rank() == 0:
 
@@ -208,15 +190,18 @@ for epoch in range(epochCurrent, num_epochs):
                 out = out.type(torch.int32).to(cpu).numpy()
                 plt.imshow(out)
                 plt.show()
+            """
 
-        if i_batch % 100 == 99 and hvd.local_rank() == 0:
+        if i_batch % 1000 == 999 and hvd.local_rank() == 0:
             lossesD.append(lossD.item())
             lossesG.append(lossG.item())
 
+            """
             plt.clf()
             plt.plot(lossesG)  # blue
             plt.plot(lossesD)  # orange
             plt.show()
+            """
 
             print('Saving latest...')
             torch.save({
@@ -234,7 +219,7 @@ for epoch in range(epochCurrent, num_epochs):
                     }, path_to_chkpt)
             print('...Done saving latest')
 
-        if i_batch % 500 == 499 and hvd.local_rank() == 0:
+        if i_batch % 5000 == 4999 and hvd.local_rank() == 0:
 
             print('Saving latest...')
             torch.save({
