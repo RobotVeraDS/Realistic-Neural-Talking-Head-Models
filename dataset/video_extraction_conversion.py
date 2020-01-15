@@ -33,20 +33,17 @@ def select_frames(video_path, K, join_by_video=False):
     global_frame_idx = 0
 
     for path in video_pathes:
-        global_frame_idx -= 1
-
         cap = cv2.VideoCapture(path)
+        video_n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-        ret, frame = cap.read()
-        global_frame_idx += 1
-
-        while ret:
+        for frame_idx in range(video_n_frames):
 
             if global_frame_idx in global_frame_random_idxs:
-                RGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                frames_list.append(RGB)
+                ret, frame = cap.read()
+                frames_list.append(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            else:
+                ret = cap.grab()
 
-            ret, frame = cap.read()
             global_frame_idx += 1
 
         cap.release()

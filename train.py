@@ -20,7 +20,7 @@ hvd.init()
 torch.cuda.set_device(hvd.local_rank())
 
 # Constants
-K = 8  # K-shot
+K = 16  # K-shot
 path_to_chkpt = './model_weights.tar'
 path_to_backup = './backup_model_weights.tar'
 
@@ -29,9 +29,9 @@ cpu = torch.device("cpu")
 
 # Data
 dataset = PreprocessedVidDataSet(K=K,
-                                 path_to_data='../../data/voxceleb2/small-8',
+                                 path_to_data='/mnt/disk/data/voxceleb2/test-64',
                                  device=device)
-dataLoader = DataLoader(dataset, batch_size=2, shuffle=True)
+dataLoader = DataLoader(dataset, batch_size=3, shuffle=True)
 
 G = Generator(224).to(device)
 E = Embedder(224).to(device)
@@ -93,6 +93,8 @@ hvd.broadcast_optimizer_state(optimizerD, root_rank=0)
 optimizerG = hvd.DistributedOptimizer(optimizerG, named_parameters=G.named_parameters())
 optimizerE = hvd.DistributedOptimizer(optimizerE, named_parameters=E.named_parameters())
 optimizerD = hvd.DistributedOptimizer(optimizerD, named_parameters=D.named_parameters())
+
+print("Start training")
 
 # Training
 batch_start = datetime.now()
