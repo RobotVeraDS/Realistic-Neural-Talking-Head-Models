@@ -8,40 +8,50 @@ import os
 from webcam_demo.webcam_extraction_conversion import crop_and_reshape_preds, crop_and_reshape_img
 
 
-def select_frames(video_path, K):
-    cap = cv2.VideoCapture(video_path)
-
-    n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    #unused
-    #w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    #h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-
-    if n_frames <= K: #There are not enough frames in the video
-        rand_frames_idx = [1]*n_frames
+def select_frames(video_path, K, join_by_video=False):
+    video_pathes = []
+    if join_by_video:
+        for video_name in os.listdir(video_path):
+            video_pathes.append(os.path.join(video_path, video_name))
     else:
-        rand_frames_idx = [0]*n_frames
-        i = 0
-        while(i < K):
-            idx = random.randint(0, n_frames-1)
-            if rand_frames_idx[idx] == 0:
-                rand_frames_idx[idx] = 1
-                i += 1
+        video_pathes.append(video_path)
+
+    n_frames = 0
+    for path in video_pathes:
+        cap = cv2.VideoCapture(path)
+        n_frames += int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        cap.release()
+
+    if n_frames <= K:
+        print("Warning! Thers is not enough frames in video {}. Frames: {}. Needed: {}.".format(
+            video_path, n_frames, K))
+        global_frame_random_idxs = set(np.array(list(range(n_frames))))
+    else:
+        global_frame_random_idxs = set(np.random.choice(range(n_frames), K, replace=False))
+
+    print(global_frame_random_idxs)
 
     frames_list = []
+    global_frame_idx = 0
 
-    # Read until video is completed or no frames needed
-    ret = True
-    frame_idx = 0
-    while(ret and frame_idx < n_frames):
+    for path in video_pathes:
+        global_frame_idx -= 1
+
+        cap = cv2.VideoCapture(path)
+
         ret, frame = cap.read()
+        global_frame_idx += 1
 
-        if ret and rand_frames_idx[frame_idx] == 1:
-            RGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            frames_list.append(RGB)
+        while ret:
 
-        frame_idx += 1
+            if global_frame_idx in global_frame_random_idxs:
+                RGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                frames_list.append(RGB)
 
-    cap.release()
+            ret, frame = cap.read()
+            global_frame_idx += 1
+
+        cap.release()
 
     return frames_list
 

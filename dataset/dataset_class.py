@@ -6,16 +6,13 @@ import random
 
 from .video_extraction_conversion import *
 
-def create_filename(person_id, video_id, video):
-    filename = "{}_{}_{}.torch".format(person_id, video_id, video)
-    return filename
-
 
 class VidDataSet(Dataset):
-    def __init__(self, K, path_to_mp4, device):
+    def __init__(self, K, path_to_mp4, device, join_by_video=False):
         self.K = K
         self.path_to_mp4 = path_to_mp4
         self.device = device
+        self.join_by_video = join_by_video
 
         self.idx_to_info = []
 
@@ -23,9 +20,14 @@ class VidDataSet(Dataset):
         idx = 0
         for person_id in os.listdir(self.path_to_mp4):
             for video_id in os.listdir(os.path.join(self.path_to_mp4, person_id)):
-                for video in os.listdir(os.path.join(self.path_to_mp4, person_id, video_id)):
-                    self.idx_to_info.append((person_id, video_id, video))
+
+                if self.join_by_video:
                     idx += 1
+                    self.idx_to_info.append((person_id, video_id))
+                else:
+                    for video in os.listdir(os.path.join(self.path_to_mp4, person_id, video_id)):
+                        self.idx_to_info.append((person_id, video_id, video))
+                        idx += 1
 
     def __len__(self):
         return len(self.idx_to_info)
@@ -37,31 +39,25 @@ class VidDataSet(Dataset):
         return self.idx_to_info[idx]
 
     def get_frame_mark_numpy_array(self, idx):
-        person_id, video_id, video = self.get_video_info(idx)
+        path = os.path.join(self.path_to_mp4, *self.get_video_info(idx))
 
-        path = os.path.join(self.path_to_mp4, person_id, video_id, video)
-
-        frame_mark = select_frames(path, self.K)
+        frame_mark = select_frames(path, self.K, join_by_video=self.join_by_video)
         frame_mark = generate_landmarks(frame_mark, self.device)
 
+        frame_mark = np.array(frame_mark)
         return frame_mark
 
     def __getitem__(self, idx):
-        vid_idx = idx
-        person_id, video_id, video = self.get_video_info(idx)
+        frame_mark = self.get_frame_mark_numpy_array(idx)
 
-        path = os.path.join(self.path_to_mp4, person_id, video_id, video)
-
-        frame_mark = select_frames(path, self.K)
-        frame_mark = generate_landmarks(frame_mark, self.device)
-        frame_mark = torch.from_numpy(np.array(frame_mark)).type(dtype = torch.float) #  K,2,224,224,3
-        frame_mark = frame_mark.transpose(2, 4).to(self.device) #  K,2,3,224,224
+        frame_mark = torch.from_numpy(frame_mark).type(dtype = torch.float)  # K,2,224,224,3
+        frame_mark = frame_mark.transpose(2, 4).to(self.device)  # K,2,3,224,224
 
         g_idx = torch.randint(low = 0, high = self.K, size = (1, 1))
         x = frame_mark[g_idx, 0].squeeze()
         g_y = frame_mark[g_idx, 1].squeeze()
 
-        return frame_mark, x, g_y, vid_idx
+        return frame_mark, x, g_y, idx
 
 
 class PreprocessedVidDataSet(Dataset):
@@ -81,15 +77,27 @@ class PreprocessedVidDataSet(Dataset):
             try:
                 data_path = os.path.join(self.path_to_data,
                                          self.filenames[idx])
-                frame_mark = torch.load(data_path)
+                frame_mark = np.load(data_path)["frame_mark"]
 
-                frame_mark = torch.from_numpy(np.array(frame_mark)).type(dtype = torch.float) #  K,2,224,224,3
+                if frame_mark.shape[0] < self.K:
+                    print("Warning! Idx: {} has {} frames that less than {}".format(
+                        idx, frame_mark.shape[0], self.K))
+                    idx = random.randint(0, len(self.filenames) - 1)
+                    print("Generated new idx: {}".format(idx))
+                    continue
+
+                random_frames_idxs = np.random.choice(range(frame_mark.shape[0]),
+                                                      self.K, replace=False)
+                frame_mark = frame_mark[random_frames_idxs, :, :, :]
+
+                frame_mark = torch.from_numpy(frame_mark).type(dtype = torch.float) #  K,2,224,224,3
                 frame_mark = frame_mark.transpose(2, 4).to(self.device) #  K,2,3,224,224
                 is_ok = True
+
             except:
-                print("Warning. {} failed".format(idx))
+                print("Warning! {} failed".format(idx))
                 idx = random.randint(0, len(self.filenames) - 1)
-                print("New idx: {}".format(idx))
+                print("Generated new idx: {}".format(idx))
 
         g_idx = torch.randint(low = 0, high = self.K, size = (1, 1))
         x = frame_mark[g_idx, 0].squeeze()
