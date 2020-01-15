@@ -29,8 +29,6 @@ def select_frames(video_path, K, join_by_video=False):
     else:
         global_frame_random_idxs = set(np.random.choice(range(n_frames), K, replace=False))
 
-    print(global_frame_random_idxs)
-
     frames_list = []
     global_frame_idx = 0
 

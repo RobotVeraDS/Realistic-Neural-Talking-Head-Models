@@ -22,8 +22,8 @@ class VidDataSet(Dataset):
             for video_id in os.listdir(os.path.join(self.path_to_mp4, person_id)):
 
                 if self.join_by_video:
-                    idx += 1
                     self.idx_to_info.append((person_id, video_id))
+                    idx += 1
                 else:
                     for video in os.listdir(os.path.join(self.path_to_mp4, person_id, video_id)):
                         self.idx_to_info.append((person_id, video_id, video))
