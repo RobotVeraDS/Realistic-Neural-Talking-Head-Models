@@ -79,19 +79,19 @@ class PreprocessedVidDataSet(Dataset):
                                          self.filenames[idx])
                 frame_mark = np.load(data_path)["frame_mark"]
 
-                if frame_mark.shape[0] < self.K:
+                if frame_mark.shape[0] < (self.K + 1):
                     print("Warning! Idx: {} has {} frames that less than {}".format(
-                        idx, frame_mark.shape[0], self.K))
+                        idx, frame_mark.shape[0], self.K + 1))
                     idx = random.randint(0, len(self.filenames) - 1)
                     print("Generated new idx: {}".format(idx))
                     continue
 
                 random_frames_idxs = np.random.choice(range(frame_mark.shape[0]),
-                                                      self.K, replace=False)
+                                                      self.K + 1, replace=False)
                 frame_mark = frame_mark[random_frames_idxs, :, :, :]
 
-                frame_mark = torch.from_numpy(frame_mark).type(dtype = torch.float) #  K,2,224,224,3
-                frame_mark = frame_mark.transpose(2, 4).to(self.device) #  K,2,3,224,224
+                frame_mark = torch.from_numpy(frame_mark).type(dtype = torch.float) #  K+1,2,224,224,3
+                frame_mark = frame_mark.transpose(2, 4).to(self.device) #  K+1,2,3,224,224
                 is_ok = True
 
             except:
@@ -99,9 +99,11 @@ class PreprocessedVidDataSet(Dataset):
                 idx = random.randint(0, len(self.filenames) - 1)
                 print("Generated new idx: {}".format(idx))
 
-        g_idx = torch.randint(low = 0, high = self.K, size = (1, 1))
-        x = frame_mark[g_idx, 0].squeeze()
-        g_y = frame_mark[g_idx, 1].squeeze()
+        g_idx = 0  # get first image from random K + 1 as target
+        x = frame_mark[0, 0].squeeze()
+        g_y = frame_mark[idx, 1].squeeze()
+
+        frame_mark = frame_mark[1:]  # other K images for embedding
 
         return frame_mark, x, g_y, idx
 
