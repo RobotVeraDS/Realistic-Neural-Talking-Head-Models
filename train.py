@@ -31,7 +31,7 @@ cpu = torch.device("cpu")
 dataset = PreprocessedVidDataSet(K=K,
                                  path_to_data='../../data/voxceleb2/dev-32',
                                  device=device)
-dataLoader = DataLoader(dataset, batch_size=3, shuffle=True)
+dataLoader = DataLoader(dataset, batch_size=2, shuffle=True)
 
 G = Generator(224).to(device)
 E = Embedder(224).to(device)
@@ -121,21 +121,30 @@ for epoch in range(epochCurrent, num_epochs):
             e_vectors = e_vectors.view(-1, f_lm.shape[1], 512, 1)  # B,K,512,1
             e_hat = e_vectors.mean(dim=1)
 
-            # train G and D
+            # train G and E
             x_hat = G(g_y, e_hat)
             r_hat, D_hat_res_list = D(x_hat, g_y, i)
             r, D_res_list = D(x, g_y, i)
 
             lossG = criterionG(x, x_hat, r_hat, D_res_list, D_hat_res_list, e_vectors, D.W_i, i)
-            lossDfake = criterionDfake(r_hat)
-            lossDreal = criterionDreal(r)
-
-            loss = lossDreal + lossDfake + lossG
-            loss.backward(retain_graph=False)
+            lossG.backward(retain_graph=True)
 
             optimizerG.step()
             optimizerE.step()
+            optimizerD.synchronize()
+
+            # train D
+            optimizerD.zero_grad()
+
+            lossDfake = criterionDfake(r_hat)
+            lossDreal = criterionDreal(r)
+
+            lossD = lossDreal + lossDfake
+            lossD.backward(retain_graph=False)
+
             optimizerD.step()
+            optimizerG.synchronize()
+            optimizerE.synchronize()
 
             # train D again
             optimizerG.zero_grad()
