@@ -99,9 +99,9 @@ class PreprocessedVidDataSet(Dataset):
                 idx = random.randint(0, len(self.filenames) - 1)
                 print("Generated new idx: {}".format(idx))
 
-        g_idx = 0  # get first image from random K + 1 as target
+        # get first image from random K + 1 as target
         x = frame_mark[0, 0].squeeze()
-        g_y = frame_mark[idx, 1].squeeze()
+        g_y = frame_mark[0, 1].squeeze()
 
         frame_mark = frame_mark[1:]  # other K images for embedding
 

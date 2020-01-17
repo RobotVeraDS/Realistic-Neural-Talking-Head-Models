@@ -14,7 +14,7 @@ from network.model import *
 
 
 # Constants
-K = 8  # K-shot
+K = 16  # K-shot
 path_to_chkpt = './model_weights.tar'
 path_to_backup = './backup_model_weights.tar'
 
@@ -23,7 +23,7 @@ cpu = torch.device("cpu")
 
 # Data
 dataset = PreprocessedVidDataSet(K=K,
-                                 path_to_data='../../data/voxceleb2/data-8',
+                                 path_to_data='../../data/voxceleb2/dev-32',
                                  device=device)
 dataLoader = DataLoader(dataset, batch_size=2, shuffle=True)
 

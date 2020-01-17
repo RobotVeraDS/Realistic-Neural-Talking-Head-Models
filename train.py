@@ -29,7 +29,7 @@ cpu = torch.device("cpu")
 
 # Data
 dataset = PreprocessedVidDataSet(K=K,
-                                 path_to_data='/mnt/disk/data/voxceleb2/test-64',
+                                 path_to_data='../../data/voxceleb2/dev-32',
                                  device=device)
 dataLoader = DataLoader(dataset, batch_size=3, shuffle=True)
 
