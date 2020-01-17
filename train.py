@@ -31,7 +31,7 @@ cpu = torch.device("cpu")
 dataset = PreprocessedVidDataSet(K=K,
                                  path_to_data='../../data/voxceleb2/dev-32',
                                  device=device)
-dataLoader = DataLoader(dataset, batch_size=2, shuffle=True)
+dataLoader = DataLoader(dataset, batch_size=3, shuffle=True)
 
 G = Generator(224).to(device)
 E = Embedder(224).to(device)
@@ -127,40 +127,28 @@ for epoch in range(epochCurrent, num_epochs):
             r, D_res_list = D(x, g_y, i)
 
             lossG = criterionG(x, x_hat, r_hat, D_res_list, D_hat_res_list, e_vectors, D.W_i, i)
-            lossG.backward(retain_graph=True)
+            lossG.backward(retain_graph=False)
 
             optimizerG.step()
             optimizerE.step()
             optimizerD.synchronize()
 
-            # train D
-            optimizerD.zero_grad()
+            # train D two times
+            for _ in range(2):
+                optimizerG.zero_grad()
+                optimizerE.zero_grad()
+                optimizerD.zero_grad()
 
-            lossDfake = criterionDfake(r_hat)
-            lossDreal = criterionDreal(r)
+                x_hat.detach_()
+                r_hat, D_hat_res_list = D(x_hat, g_y, i)
+                r, D_res_list = D(x, g_y, i)
 
-            lossD = lossDreal + lossDfake
-            lossD.backward(retain_graph=False)
+                lossDfake = criterionDfake(r_hat)
+                lossDreal = criterionDreal(r)
 
-            optimizerD.step()
-            optimizerG.synchronize()
-            optimizerE.synchronize()
-
-            # train D again
-            optimizerG.zero_grad()
-            optimizerE.zero_grad()
-            optimizerD.zero_grad()
-
-            x_hat.detach_()
-            r_hat, D_hat_res_list = D(x_hat, g_y, i)
-            r, D_res_list = D(x, g_y, i)
-
-            lossDfake = criterionDfake(r_hat)
-            lossDreal = criterionDreal(r)
-
-            lossD = lossDreal + lossDfake
-            lossD.backward(retain_graph=False)
-            optimizerD.step()
+                lossD = lossDreal + lossDfake
+                lossD.backward(retain_graph=False)
+                optimizerD.step()
 
         # Output training stats
         if i_batch % 10 == 0:
